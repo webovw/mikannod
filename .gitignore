@@ -1,0 +1,39 @@
+# build output
+/bin/
+/dist/
+web/dist/
+installer/target/
+node_modules/
+
+# runtime data and secrets (the release signing key never enters the repo)
+*.pem
+release-signing*
+/data/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+
+# local documentation
+/docs/
+
+# editors / OS / local tooling
+.claude/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# release artifacts
+/release/
+.github/assets/avatar-concepts/
+
+
+# Local development and secrets
+.env
+.env.*
+!.env.example
+*.log
+coverage.out

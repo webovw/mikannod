@@ -1,0 +1,66 @@
+package tgbot
+
+import (
+	"context"
+	"strconv"
+	"time"
+
+	"mikan/internal/panel/events"
+	"mikan/internal/panel/model"
+	"mikan/internal/textutil"
+	"mikan/internal/tgapi"
+)
+
+// night: automatic notices then come without a sound. Most users live on Moscow time;
+// a notice at 3 a.m. with a ring is how a bot gets reported as spam.
+func night(t time.Time) bool {
+	h := t.In(textutil.Zone).Hour()
+	return h >= 22 || h < 9
+}
+
+// noticeKind is the kind of notice an event names; days is the user.expiring event's.
+func noticeKind(typ string, days int) string {
+	switch typ {
+	case events.UserExpired:
+		return "expired"
+	case events.Traffic90:
+		return "traffic_90"
+	case events.Traffic100:
+		return "traffic_100"
+	}
+	if days == 1 {
+		return "expire_1d"
+	}
+	return "expire_3d"
+}
+
+// noticeMessage is a notice of kind about u, as the admin worded it, with its buttons.
+func (b *Bot) noticeMessage(ctx context.Context, cfg Config, w *words, u model.User, kind string, now time.Time) (string, *tgapi.Keyboard) {
+	var tpl string
+	switch kind {
+	case "expire_3d", "expire_1d":
+		tpl = pick(cfg.Texts.Expiring, w.expiring)
+	case "expired":
+		tpl = pick(cfg.Texts.Expired, w.expired)
+	case "traffic_90":
+		tpl = pick(cfg.Texts.Traffic90, w.traffic90)
+	case "traffic_100":
+		tpl = pick(cfg.Texts.TrafficEnd, w.trafficEnd)
+	}
+	text := render(tpl, b.vars(ctx, w, u, now))
+	var rows [][]tgapi.Button
+	// Traffic running out: the packages there are for this subscription, a tap away.
+	if kind == "traffic_90" || kind == "traffic_100" {
+		if len(b.packageOffers(ctx, u.ID)) > 0 {
+			rows = append(rows, []tgapi.Button{{Text: w.buyTraffic, CallbackData: "xu:" + strconv.FormatInt(u.ID, 10)}})
+		}
+	}
+	if kind != "traffic_90" {
+		rows = append(rows, []tgapi.Button{{Text: labelOf(cfg, "renew", "💳"), CallbackData: "r"}})
+	}
+	var kb *tgapi.Keyboard
+	if len(rows) > 0 {
+		kb = &tgapi.Keyboard{InlineKeyboard: rows}
+	}
+	return text, kb
+}
